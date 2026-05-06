@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.sxk.store.mapper.InventoryMapper">
+
+    <resultMap id="InventoryResultMap" type="Inventory">
+        <id property="id" column="id"/>
+        <result property="productId" column="product_id"/>
+        <result property="stock" column="stock"/>
+        <result property="lockStock" column="lock_stock"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <select id="findByProductId" resultMap="InventoryResultMap">
+        SELECT id, product_id, stock, lock_stock, create_time, update_time FROM inventory WHERE product_id = #{productId}
+    </select>
+
+    <insert id="insert" parameterType="Inventory">
+        INSERT INTO inventory (product_id, stock, lock_stock) VALUES (#{productId}, #{stock}, #{lockStock})
+    </insert>
+
+    <update id="update" parameterType="Inventory">
+        UPDATE inventory SET stock = #{stock}, lock_stock = #{lockStock} WHERE id = #{id}
+    </update>
+
+    <update id="lockStock">
+        UPDATE inventory 
+        SET lock_stock = lock_stock + #{quantity} 
+        WHERE product_id = #{productId} AND stock - lock_stock >= #{quantity}
+    </update>
+
+    <update id="unlockStock">
+        UPDATE inventory 
+        SET lock_stock = lock_stock - #{quantity} 
+        WHERE product_id = #{productId} AND lock_stock >= #{quantity}
+    </update>
+
+    <update id="deductStock">
+        UPDATE inventory 
+        SET stock = stock - #{quantity}, lock_stock = lock_stock - #{quantity} 
+        WHERE product_id = #{productId} AND lock_stock >= #{quantity}
+    </update>
+
+</mapper>

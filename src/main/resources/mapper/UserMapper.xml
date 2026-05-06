@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.sxk.store.mapper.UserMapper">
+
+    <resultMap id="UserResultMap" type="User">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="password" column="password"/>
+        <result property="phone" column="phone"/>
+        <result property="email" column="email"/>
+        <result property="status" column="status"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="UserResultMap">
+        SELECT id, username, password, phone, email, status, create_time, update_time FROM user
+    </select>
+
+    <select id="findById" resultMap="UserResultMap">
+        SELECT id, username, password, phone, email, status, create_time, update_time FROM user WHERE id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="User">
+        INSERT INTO user (username, password, phone, email, status) VALUES (#{username}, #{password}, #{phone}, #{email}, #{status})
+    </insert>
+
+    <update id="update" parameterType="User">
+        UPDATE user SET username = #{username}, password = #{password}, phone = #{phone}, email = #{email}, status = #{status} WHERE id = #{id}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM user WHERE id = #{id}
+    </delete>
+
+</mapper>

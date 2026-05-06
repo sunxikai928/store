@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.sxk.store.mapper.OrderItemMapper">
+
+    <resultMap id="OrderItemResultMap" type="OrderItem">
+        <id property="id" column="id"/>
+        <result property="orderId" column="order_id"/>
+        <result property="productId" column="product_id"/>
+        <result property="quantity" column="quantity"/>
+        <result property="price" column="price"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="OrderItem">
+        INSERT INTO order_item (order_id, product_id, quantity, price) 
+        VALUES (#{orderId}, #{productId}, #{quantity}, #{price})
+    </insert>
+
+    <insert id="insertBatch" parameterType="java.util.List">
+        INSERT INTO order_item (order_id, product_id, quantity, price)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.orderId}, #{item.productId}, #{item.quantity}, #{item.price})
+        </foreach>
+    </insert>
+
+    <select id="findByOrderId" resultMap="OrderItemResultMap">
+        SELECT id, order_id, product_id, quantity, price, create_time 
+        FROM order_item 
+        WHERE order_id = #{orderId}
+    </select>
+
+    <delete id="deleteByOrderId">
+        DELETE FROM order_item WHERE order_id = #{orderId}
+    </delete>
+
+</mapper>
