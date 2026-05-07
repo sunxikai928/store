@@ -2,6 +2,7 @@ package org.sxk.store.service.impl;
 
 import lombok.extern.slf4j.Slf4j;
 import org.sxk.store.dto.PlaceOrderRequest;
+import org.sxk.store.entity.Inventory;
 import org.sxk.store.entity.OrderItem;
 import org.sxk.store.entity.Orders;
 import org.sxk.store.entity.Product;
@@ -12,6 +13,8 @@ import org.sxk.store.mapper.OrderMapper;
 import org.sxk.store.mapper.ProductMapper;
 import org.sxk.store.service.InventoryService;
 import org.sxk.store.service.OrderService;
+import org.sxk.store.service.ProductService;
+import org.sxk.store.service.RedisStockService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,13 +30,18 @@ public class OrderServiceImpl implements OrderService {
     private final OrderItemMapper orderItemMapper;
     private final ProductMapper productMapper;
     private final InventoryService inventoryService;
+    private final ProductService productService;
+    private final RedisStockService redisStockService;
 
     public OrderServiceImpl(OrderMapper orderMapper, OrderItemMapper orderItemMapper, 
-                           ProductMapper productMapper, InventoryService inventoryService) {
+                           ProductMapper productMapper, InventoryService inventoryService,
+                           ProductService productService, RedisStockService redisStockService) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
         this.productMapper = productMapper;
         this.inventoryService = inventoryService;
+        this.productService = productService;
+        this.redisStockService = redisStockService;
     }
 
     @Override
@@ -108,10 +116,23 @@ public class OrderServiceImpl implements OrderService {
             items.add(item);
         }
         
+        List<Long> productIds = items.stream()
+                .map(OrderItem::getProductId)
+                .toList();
+        List<Integer> quantities = items.stream()
+                .map(OrderItem::getQuantity)
+                .toList();
+        
+        boolean success = redisStockService.decreaseStockBatch(productIds, quantities);
+        if (!success) {
+            log.error("Failed to decrease stock in Redis for products: {}", productIds);
+            throw new RuntimeException("Insufficient stock for one or more products");
+        }
+        
         for (OrderItem item : items) {
             boolean locked = inventoryService.lockStock(item.getProductId(), item.getQuantity());
             if (!locked) {
-                log.error("Failed to lock stock for product: {}", item.getProductId());
+                log.error("Failed to lock stock in DB for product: {}", item.getProductId());
                 throw new RuntimeException("Insufficient stock for product: " + item.getProductId());
             }
         }
@@ -151,6 +172,12 @@ public class OrderServiceImpl implements OrderService {
         List<OrderItem> items = orderItemMapper.findByOrderId(orderId);
         for (OrderItem item : items) {
             inventoryService.deductStock(item.getProductId(), item.getQuantity());
+            
+            Inventory inventory = inventoryService.getByProductId(item.getProductId());
+            if (inventory != null && inventory.getStock() != null && inventory.getStock() <= 0) {
+                log.info("Product {} stock is 0, auto unshelving", item.getProductId());
+                productService.unshelfProduct(item.getProductId());
+            }
         }
         
         order.setStatusEnum(OrderStatus.PAID);
@@ -179,6 +206,11 @@ public class OrderServiceImpl implements OrderService {
         List<OrderItem> items = orderItemMapper.findByOrderId(orderId);
         for (OrderItem item : items) {
             inventoryService.unlockStock(item.getProductId(), item.getQuantity());
+            
+            Inventory inventory = inventoryService.getByProductId(item.getProductId());
+            if (inventory != null && inventory.getStock() != null) {
+                redisStockService.setStock(item.getProductId(), inventory.getStock() + inventory.getLockStock());
+            }
         }
         
         order.setStatusEnum(OrderStatus.CANCELED);

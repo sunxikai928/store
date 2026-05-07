@@ -22,7 +22,7 @@
         SELECT id, user_id, total_amount, status, create_time, update_time FROM orders WHERE id = #{id}
     </select>
 
-    <insert id="insert" parameterType="Orders">
+    <insert id="insert" parameterType="Orders" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO orders (user_id, total_amount, status) VALUES (#{userId}, #{totalAmount}, #{status})
     </insert>
 

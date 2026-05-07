@@ -24,7 +24,7 @@
         SELECT id, username, password, phone, email, status, create_time, update_time FROM user WHERE id = #{id}
     </select>
 
-    <insert id="insert" parameterType="User">
+    <insert id="insert" parameterType="User" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO user (username, password, phone, email, status) VALUES (#{username}, #{password}, #{phone}, #{email}, #{status})
     </insert>
 

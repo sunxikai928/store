@@ -7,6 +7,7 @@ import org.sxk.store.enums.ProductStatus;
 import org.sxk.store.mapper.ProductMapper;
 import org.sxk.store.service.InventoryService;
 import org.sxk.store.service.ProductService;
+import org.sxk.store.service.RedisStockService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,10 +18,13 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductMapper productMapper;
     private final InventoryService inventoryService;
+    private final RedisStockService redisStockService;
 
-    public ProductServiceImpl(ProductMapper productMapper, InventoryService inventoryService) {
+    public ProductServiceImpl(ProductMapper productMapper, InventoryService inventoryService,
+                             RedisStockService redisStockService) {
         this.productMapper = productMapper;
         this.inventoryService = inventoryService;
+        this.redisStockService = redisStockService;
     }
 
     @Override
@@ -51,6 +55,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public int deleteProduct(Long id) {
         log.info("Deleting product: {}", id);
+        redisStockService.deleteStock(id);
         return productMapper.delete(id);
     }
 
@@ -77,7 +82,14 @@ public class ProductServiceImpl implements ProductService {
         }
         
         product.setStatusEnum(ProductStatus.ON_SHELF);
-        return productMapper.update(product);
+        int result = productMapper.update(product);
+        
+        if (result > 0) {
+            redisStockService.setStock(id, inventory.getStock());
+            log.info("Product {} shelved, stock synchronized to Redis: {}", id, inventory.getStock());
+        }
+        
+        return result;
     }
 
     @Override
@@ -88,7 +100,15 @@ public class ProductServiceImpl implements ProductService {
             log.error("Product not found: {}", id);
             return 0;
         }
+        
         product.setStatusEnum(ProductStatus.OFF_SHELF);
-        return productMapper.update(product);
+        int result = productMapper.update(product);
+        
+        if (result > 0) {
+            redisStockService.deleteStock(id);
+            log.info("Product {} unshelved, stock removed from Redis", id);
+        }
+        
+        return result;
     }
 }

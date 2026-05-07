@@ -23,7 +23,7 @@
         SELECT id, name, price, description, status, create_time, update_time FROM product WHERE id = #{id}
     </select>
 
-    <insert id="insert" parameterType="Product">
+    <insert id="insert" parameterType="Product" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO product (name, price, description, status) VALUES (#{name}, #{price}, #{description}, #{status})
     </insert>
 

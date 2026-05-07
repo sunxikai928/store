@@ -14,7 +14,7 @@
         <result property="createTime" column="create_time"/>
     </resultMap>
 
-    <insert id="insert" parameterType="OrderItem">
+    <insert id="insert" parameterType="OrderItem" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO order_item (order_id, product_id, quantity, price) 
         VALUES (#{orderId}, #{productId}, #{quantity}, #{price})
     </insert>
