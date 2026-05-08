@@ -40,7 +40,7 @@ public class OrderConsumer {
     }
 
     @RabbitListener(queues = RabbitMQConfig.ORDER_QUEUE)
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void handleOrderMessage(OrderMessageDTO message) {
         Long userId = message.getUserId();
         List<OrderMessageDTO.OrderItemDTO> itemDTOs = message.getItems();

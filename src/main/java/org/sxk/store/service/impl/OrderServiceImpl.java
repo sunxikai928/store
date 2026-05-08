@@ -75,7 +75,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int deleteOrder(Long id) {
         log.info("Deleting order: {}", id);
         orderItemMapper.deleteByOrderId(id);
@@ -144,7 +144,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public boolean payOrder(Long orderId) {
         log.info("Paying order: {}", orderId);
         
@@ -178,7 +178,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public boolean cancelOrder(Long orderId) {
         log.info("Canceling order: {}", orderId);
         
