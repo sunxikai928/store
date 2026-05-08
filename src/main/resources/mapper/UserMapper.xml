@@ -5,7 +5,7 @@
 
 <mapper namespace="org.sxk.store.mapper.UserMapper">
 
-    <resultMap id="UserResultMap" type="User">
+    <resultMap id="UserResultMap" type="org.sxk.store.entity.User">
         <id property="id" column="id"/>
         <result property="username" column="username"/>
         <result property="password" column="password"/>
@@ -24,11 +24,11 @@
         SELECT id, username, password, phone, email, status, create_time, update_time FROM user WHERE id = #{id}
     </select>
 
-    <insert id="insert" parameterType="User" useGeneratedKeys="true" keyProperty="id">
+    <insert id="insert" parameterType="org.sxk.store.entity.User" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO user (username, password, phone, email, status) VALUES (#{username}, #{password}, #{phone}, #{email}, #{status})
     </insert>
 
-    <update id="update" parameterType="User">
+    <update id="update" parameterType="org.sxk.store.entity.User">
         UPDATE user SET username = #{username}, password = #{password}, phone = #{phone}, email = #{email}, status = #{status} WHERE id = #{id}
     </update>
 

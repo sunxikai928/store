@@ -1,6 +1,8 @@
 package org.sxk.store.service.impl;
 
 import lombok.extern.slf4j.Slf4j;
+import org.sxk.store.config.RabbitMQConfig;
+import org.sxk.store.dto.OrderMessageDTO;
 import org.sxk.store.dto.PlaceOrderRequest;
 import org.sxk.store.entity.Inventory;
 import org.sxk.store.entity.OrderItem;
@@ -15,6 +17,7 @@ import org.sxk.store.service.InventoryService;
 import org.sxk.store.service.OrderService;
 import org.sxk.store.service.ProductService;
 import org.sxk.store.service.RedisStockService;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,16 +35,19 @@ public class OrderServiceImpl implements OrderService {
     private final InventoryService inventoryService;
     private final ProductService productService;
     private final RedisStockService redisStockService;
+    private final RabbitTemplate rabbitTemplate;
 
     public OrderServiceImpl(OrderMapper orderMapper, OrderItemMapper orderItemMapper, 
                            ProductMapper productMapper, InventoryService inventoryService,
-                           ProductService productService, RedisStockService redisStockService) {
+                           ProductService productService, RedisStockService redisStockService,
+                           RabbitTemplate rabbitTemplate) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
         this.productMapper = productMapper;
         this.inventoryService = inventoryService;
         this.productService = productService;
         this.redisStockService = redisStockService;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @Override
@@ -83,15 +89,13 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
     public Long placeOrder(PlaceOrderRequest request) {
         Long userId = request.getUserId();
         List<PlaceOrderRequest.OrderItemDTO> itemDTOs = request.getItems();
         
         log.info("Placing order for user {} with {} items", userId, itemDTOs.size());
         
-        BigDecimal totalAmount = BigDecimal.ZERO;
-        List<OrderItem> items = new ArrayList<>();
+        List<OrderMessageDTO.OrderItemDTO> messageItems = new ArrayList<>();
         
         for (PlaceOrderRequest.OrderItemDTO itemDTO : itemDTOs) {
             Product product = productMapper.findById(itemDTO.getProductId());
@@ -105,22 +109,20 @@ public class OrderServiceImpl implements OrderService {
                 throw new RuntimeException("Product is not available: " + product.getName());
             }
             
-            OrderItem item = new OrderItem();
-            item.setProductId(itemDTO.getProductId());
-            item.setQuantity(itemDTO.getQuantity());
-            item.setPrice(product.getPrice());
+            OrderMessageDTO.OrderItemDTO messageItem = new OrderMessageDTO.OrderItemDTO();
+            messageItem.setProductId(itemDTO.getProductId());
+            messageItem.setQuantity(itemDTO.getQuantity());
+            messageItem.setProductName(product.getName());
+            messageItem.setPrice(product.getPrice());
             
-            BigDecimal itemAmount = product.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
-            totalAmount = totalAmount.add(itemAmount);
-            
-            items.add(item);
+            messageItems.add(messageItem);
         }
         
-        List<Long> productIds = items.stream()
-                .map(OrderItem::getProductId)
+        List<Long> productIds = messageItems.stream()
+                .map(OrderMessageDTO.OrderItemDTO::getProductId)
                 .toList();
-        List<Integer> quantities = items.stream()
-                .map(OrderItem::getQuantity)
+        List<Integer> quantities = messageItems.stream()
+                .map(OrderMessageDTO.OrderItemDTO::getQuantity)
                 .toList();
         
         boolean success = redisStockService.decreaseStockBatch(productIds, quantities);
@@ -129,28 +131,16 @@ public class OrderServiceImpl implements OrderService {
             throw new RuntimeException("Insufficient stock for one or more products");
         }
         
-        for (OrderItem item : items) {
-            boolean locked = inventoryService.lockStock(item.getProductId(), item.getQuantity());
-            if (!locked) {
-                log.error("Failed to lock stock in DB for product: {}", item.getProductId());
-                throw new RuntimeException("Insufficient stock for product: " + item.getProductId());
-            }
-        }
+        OrderMessageDTO message = new OrderMessageDTO();
+        message.setUserId(userId);
+        message.setItems(messageItems);
         
-        Orders order = new Orders();
-        order.setUserId(userId);
-        order.setTotalAmount(totalAmount);
-        order.setStatusEnum(OrderStatus.PENDING);
+        rabbitTemplate.convertAndSend(RabbitMQConfig.ORDER_EXCHANGE, 
+                                      RabbitMQConfig.ORDER_ROUTING_KEY, 
+                                      message);
         
-        orderMapper.insert(order);
-        
-        for (OrderItem item : items) {
-            item.setOrderId(order.getId());
-        }
-        orderItemMapper.insertBatch(items);
-        
-        log.info("Order created successfully: {}", order.getId());
-        return order.getId();
+        log.info("Order message sent to MQ for user {}", userId);
+        return null;
     }
 
     @Override

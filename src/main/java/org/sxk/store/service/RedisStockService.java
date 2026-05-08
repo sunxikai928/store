@@ -7,6 +7,7 @@ public interface RedisStockService {
     Integer getStock(Long productId);
     boolean decreaseStock(Long productId, Integer quantity);
     boolean decreaseStockBatch(List<Long> productIds, List<Integer> quantities);
+    void increaseStock(Long productId, Integer quantity);
     void deleteStock(Long productId);
     boolean hasStock(Long productId);
 }

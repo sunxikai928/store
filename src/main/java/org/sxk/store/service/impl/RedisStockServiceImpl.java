@@ -136,6 +136,14 @@ public class RedisStockServiceImpl implements RedisStockService {
     }
 
     @Override
+    public void increaseStock(Long productId, Integer quantity) {
+        String key = getStockKey(productId);
+        redisTemplate.opsForValue().increment(key, quantity);
+        log.info("Increased stock for product {} by {}, current: {}", 
+                productId, quantity, getStock(productId));
+    }
+
+    @Override
     public void deleteStock(Long productId) {
         String key = getStockKey(productId);
         Boolean deleted = redisTemplate.delete(key);

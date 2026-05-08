@@ -5,7 +5,7 @@
 
 <mapper namespace="org.sxk.store.mapper.OrderItemMapper">
 
-    <resultMap id="OrderItemResultMap" type="OrderItem">
+    <resultMap id="OrderItemResultMap" type="org.sxk.store.entity.OrderItem">
         <id property="id" column="id"/>
         <result property="orderId" column="order_id"/>
         <result property="productId" column="product_id"/>

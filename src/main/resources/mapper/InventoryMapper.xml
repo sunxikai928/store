@@ -5,7 +5,7 @@
 
 <mapper namespace="org.sxk.store.mapper.InventoryMapper">
 
-    <resultMap id="InventoryResultMap" type="Inventory">
+    <resultMap id="InventoryResultMap" type="org.sxk.store.entity.Inventory">
         <id property="id" column="id"/>
         <result property="productId" column="product_id"/>
         <result property="stock" column="stock"/>

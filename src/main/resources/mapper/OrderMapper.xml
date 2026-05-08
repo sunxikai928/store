@@ -5,7 +5,7 @@
 
 <mapper namespace="org.sxk.store.mapper.OrderMapper">
 
-    <resultMap id="OrderResultMap" type="Orders">
+    <resultMap id="OrderResultMap" type="org.sxk.store.entity.Orders">
         <id property="id" column="id"/>
         <result property="userId" column="user_id"/>
         <result property="totalAmount" column="total_amount"/>
@@ -22,11 +22,11 @@
         SELECT id, user_id, total_amount, status, create_time, update_time FROM orders WHERE id = #{id}
     </select>
 
-    <insert id="insert" parameterType="Orders" useGeneratedKeys="true" keyProperty="id">
+    <insert id="insert" parameterType="org.sxk.store.entity.Orders" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO orders (user_id, total_amount, status) VALUES (#{userId}, #{totalAmount}, #{status})
     </insert>
 
-    <update id="update" parameterType="Orders">
+    <update id="update" parameterType="org.sxk.store.entity.Orders">
         UPDATE orders SET user_id = #{userId}, total_amount = #{totalAmount}, status = #{status} WHERE id = #{id}
     </update>
 

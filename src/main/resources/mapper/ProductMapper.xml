@@ -5,7 +5,7 @@
 
 <mapper namespace="org.sxk.store.mapper.ProductMapper">
 
-    <resultMap id="ProductResultMap" type="Product">
+    <resultMap id="ProductResultMap" type="org.sxk.store.entity.Product">
         <id property="id" column="id"/>
         <result property="name" column="name"/>
         <result property="price" column="price"/>
@@ -23,11 +23,11 @@
         SELECT id, name, price, description, status, create_time, update_time FROM product WHERE id = #{id}
     </select>
 
-    <insert id="insert" parameterType="Product" useGeneratedKeys="true" keyProperty="id">
+    <insert id="insert" parameterType="org.sxk.store.entity.Product" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO product (name, price, description, status) VALUES (#{name}, #{price}, #{description}, #{status})
     </insert>
 
-    <update id="update" parameterType="Product">
+    <update id="update" parameterType="org.sxk.store.entity.Product">
         UPDATE product SET name = #{name}, price = #{price}, description = #{description}, status = #{status} WHERE id = #{id}
     </update>
 

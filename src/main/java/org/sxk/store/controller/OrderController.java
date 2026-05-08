@@ -134,9 +134,9 @@ public class OrderController {
     }
 
     @PostMapping("/place")
-    @Operation(summary = "下单", description = "创建订单并锁定库存，订单状态为待支付")
+    @Operation(summary = "下单", description = "通过Redis检查库存后发送MQ消息，由消费者完成下单")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "下单成功"),
+            @ApiResponse(responseCode = "200", description = "下单请求已接收"),
             @ApiResponse(responseCode = "400", description = "下单失败，库存不足或商品不存在")
     })
     public ResponseEntity<Result<String>> placeOrder(
@@ -144,8 +144,8 @@ public class OrderController {
             @RequestBody PlaceOrderRequest request) {
         log.info("POST /api/orders/place - 下单");
         try {
-            Long orderId = orderService.placeOrder(request);
-            return ResponseEntity.ok(Result.success("下单成功，订单ID: " + orderId));
+            orderService.placeOrder(request);
+            return ResponseEntity.ok(Result.success("下单请求已接收，正在处理中"));
         } catch (Exception e) {
             log.error("下单失败", e);
             return ResponseEntity.ok(Result.badRequest("下单失败: " + e.getMessage()));
