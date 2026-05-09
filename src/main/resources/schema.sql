@@ -63,3 +63,18 @@ CREATE TABLE IF NOT EXISTS order_item (
     CONSTRAINT fk_order_item_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE, 
     CONSTRAINT fk_order_item_product FOREIGN KEY (product_id) REFERENCES product(id) 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单项表';
+
+CREATE TABLE IF NOT EXISTS message_record ( 
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '消息记录ID', 
+    exchange VARCHAR(100) NOT NULL COMMENT '交换机名称', 
+    routing_key VARCHAR(100) NOT NULL COMMENT '路由键', 
+    message_body TEXT NOT NULL COMMENT '消息体(JSON格式)', 
+    retry_count INT DEFAULT 0 COMMENT '重试次数', 
+    next_retry_time DATETIME COMMENT '下次重试时间', 
+    status TINYINT DEFAULT 1 COMMENT '状态 1已发送 2消费成功 3消费失败', 
+    fail_reason TEXT COMMENT '失败原因', 
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP, 
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
+    INDEX idx_status (status), 
+    INDEX idx_next_retry_time (next_retry_time) 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息记录表';

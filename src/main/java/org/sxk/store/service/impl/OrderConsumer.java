@@ -8,10 +8,12 @@ import org.sxk.store.config.RabbitMQConfig;
 import org.sxk.store.dto.OrderMessageDTO;
 import org.sxk.store.entity.OrderItem;
 import org.sxk.store.entity.Orders;
+import org.sxk.store.enums.MessageStatus;
 import org.sxk.store.enums.OrderStatus;
 import org.sxk.store.mapper.OrderItemMapper;
 import org.sxk.store.mapper.OrderMapper;
 import org.sxk.store.service.InventoryService;
+import org.sxk.store.service.MessageRecordService;
 import org.sxk.store.service.ProductService;
 import org.sxk.store.service.RedisStockService;
 
@@ -28,15 +30,17 @@ public class OrderConsumer {
     private final InventoryService inventoryService;
     private final ProductService productService;
     private final RedisStockService redisStockService;
+    private final MessageRecordService messageRecordService;
 
     public OrderConsumer(OrderMapper orderMapper, OrderItemMapper orderItemMapper,
                          InventoryService inventoryService, ProductService productService,
-                         RedisStockService redisStockService) {
+                         RedisStockService redisStockService, MessageRecordService messageRecordService) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
         this.inventoryService = inventoryService;
         this.productService = productService;
         this.redisStockService = redisStockService;
+        this.messageRecordService = messageRecordService;
     }
 
     @RabbitListener(queues = RabbitMQConfig.ORDER_QUEUE)
@@ -44,13 +48,17 @@ public class OrderConsumer {
     public void handleOrderMessage(OrderMessageDTO message) {
         Long userId = message.getUserId();
         String orderNo = message.getOrderNo();
+        Long messageId = message.getMessageId();
         List<OrderMessageDTO.OrderItemDTO> itemDTOs = message.getItems();
 
-        log.info("Received order message for user {} with orderNo {} and {} items", userId, orderNo, itemDTOs.size());
+        log.info("Received order message for user {} with orderNo {} and {} items, messageId: {}", userId, orderNo, itemDTOs.size(), messageId);
 
         Orders existingOrder = orderMapper.findByOrderNo(orderNo);
         if (existingOrder != null) {
             log.info("Order already exists, skipping duplicate message. orderNo: {}", orderNo);
+            if (messageId != null) {
+                messageRecordService.updateStatus(messageId, MessageStatus.CONSUMED_SUCCESS.getCode(), null);
+            }
             return;
         }
 
@@ -93,6 +101,10 @@ public class OrderConsumer {
             }
             orderItemMapper.insertBatch(items);
 
+            if (messageId != null) {
+                messageRecordService.updateStatus(messageId, MessageStatus.CONSUMED_SUCCESS.getCode(), null);
+            }
+
             log.info("Order created successfully via MQ: {}", order.getId());
 
         } catch (Exception e) {
@@ -102,6 +114,10 @@ public class OrderConsumer {
                 for (OrderMessageDTO.OrderItemDTO itemDTO : itemDTOs) {
                     redisStockService.increaseStock(itemDTO.getProductId(), itemDTO.getQuantity());
                 }
+            }
+
+            if (messageId != null) {
+                messageRecordService.handleMessageFailure(messageId, e.getMessage());
             }
         }
     }

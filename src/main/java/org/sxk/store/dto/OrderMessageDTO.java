@@ -14,6 +14,8 @@ public class OrderMessageDTO implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    private Long messageId;
+
     private String orderNo;
 
     private Long userId;

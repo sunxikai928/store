@@ -1,5 +1,6 @@
 package org.sxk.store.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.sxk.store.config.RabbitMQConfig;
 import org.sxk.store.dto.OrderMessageDTO;
@@ -8,12 +9,14 @@ import org.sxk.store.entity.Inventory;
 import org.sxk.store.entity.OrderItem;
 import org.sxk.store.entity.Orders;
 import org.sxk.store.entity.Product;
+import org.sxk.store.enums.MessageStatus;
 import org.sxk.store.enums.OrderStatus;
 import org.sxk.store.enums.ProductStatus;
 import org.sxk.store.mapper.OrderItemMapper;
 import org.sxk.store.mapper.OrderMapper;
 import org.sxk.store.mapper.ProductMapper;
 import org.sxk.store.service.InventoryService;
+import org.sxk.store.service.MessageRecordService;
 import org.sxk.store.service.OrderService;
 import org.sxk.store.service.ProductService;
 import org.sxk.store.service.RedisStockService;
@@ -39,11 +42,14 @@ public class OrderServiceImpl implements OrderService {
     private final ProductService productService;
     private final RedisStockService redisStockService;
     private final RabbitTemplate rabbitTemplate;
+    private final MessageRecordService messageRecordService;
+    private final ObjectMapper objectMapper;
 
     public OrderServiceImpl(OrderMapper orderMapper, OrderItemMapper orderItemMapper, 
                            ProductMapper productMapper, InventoryService inventoryService,
                            ProductService productService, RedisStockService redisStockService,
-                           RabbitTemplate rabbitTemplate) {
+                           RabbitTemplate rabbitTemplate, MessageRecordService messageRecordService,
+                           ObjectMapper objectMapper) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
         this.productMapper = productMapper;
@@ -51,6 +57,8 @@ public class OrderServiceImpl implements OrderService {
         this.productService = productService;
         this.redisStockService = redisStockService;
         this.rabbitTemplate = rabbitTemplate;
+        this.messageRecordService = messageRecordService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -141,11 +149,27 @@ public class OrderServiceImpl implements OrderService {
         message.setUserId(userId);
         message.setItems(messageItems);
         
-        rabbitTemplate.convertAndSend(RabbitMQConfig.ORDER_EXCHANGE, 
-                                      RabbitMQConfig.ORDER_ROUTING_KEY, 
-                                      message);
+        try {
+            String messageBody = objectMapper.writeValueAsString(message);
+            
+            Long messageId = messageRecordService.saveMessage(
+                RabbitMQConfig.ORDER_EXCHANGE, 
+                RabbitMQConfig.ORDER_ROUTING_KEY, 
+                messageBody
+            );
+            
+            message.setMessageId(messageId);
+            
+            rabbitTemplate.convertAndSend(RabbitMQConfig.ORDER_EXCHANGE, 
+                                        RabbitMQConfig.ORDER_ROUTING_KEY, 
+                                        message);
+            
+            log.info("Order message sent to MQ for user {} with orderNo: {}, messageId: {}", userId, orderNo, messageId);
+        } catch (Exception e) {
+            log.error("Failed to save message record or send MQ message", e);
+            throw new RuntimeException("Failed to place order", e);
+        }
         
-        log.info("Order message sent to MQ for user {} with orderNo: {}", userId, orderNo);
         return null;
     }
     
