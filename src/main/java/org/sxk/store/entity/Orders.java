@@ -17,6 +17,9 @@ public class Orders {
     @Schema(description = "订单ID", example = "1")
     private Long id;
     
+    @Schema(description = "订单编号", example = "ORD202401010001", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String orderNo;
+    
     @Schema(description = "用户ID", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long userId;
     

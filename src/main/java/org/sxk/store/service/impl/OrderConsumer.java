@@ -43,9 +43,16 @@ public class OrderConsumer {
     @Transactional(rollbackFor = Exception.class)
     public void handleOrderMessage(OrderMessageDTO message) {
         Long userId = message.getUserId();
+        String orderNo = message.getOrderNo();
         List<OrderMessageDTO.OrderItemDTO> itemDTOs = message.getItems();
 
-        log.info("Received order message for user {} with {} items", userId, itemDTOs.size());
+        log.info("Received order message for user {} with orderNo {} and {} items", userId, orderNo, itemDTOs.size());
+
+        Orders existingOrder = orderMapper.findByOrderNo(orderNo);
+        if (existingOrder != null) {
+            log.info("Order already exists, skipping duplicate message. orderNo: {}", orderNo);
+            return;
+        }
 
         try {
             BigDecimal totalAmount = BigDecimal.ZERO;
@@ -74,6 +81,7 @@ public class OrderConsumer {
             }
 
             Orders order = new Orders();
+            order.setOrderNo(orderNo);
             order.setUserId(userId);
             order.setTotalAmount(totalAmount);
             order.setStatusEnum(OrderStatus.PENDING);

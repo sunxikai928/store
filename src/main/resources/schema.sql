@@ -40,12 +40,14 @@ CREATE TABLE IF NOT EXISTS inventory (
 
 CREATE TABLE IF NOT EXISTS orders ( 
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '订单ID', 
+    order_no VARCHAR(32) NOT NULL COMMENT '订单编号',
     user_id BIGINT NOT NULL COMMENT '用户ID', 
     total_amount DECIMAL(10,2) NOT NULL COMMENT '订单总金额', 
     status TINYINT DEFAULT 0 COMMENT '订单状态 0待支付 1已支付 2已取消', 
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP, 
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
     INDEX idx_user_id (user_id), 
+    UNIQUE KEY uk_order_no (order_no), 
     CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES user(id) 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单表'; 
 

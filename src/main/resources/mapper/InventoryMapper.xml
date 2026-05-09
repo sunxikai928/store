@@ -18,11 +18,11 @@
         SELECT id, product_id, stock, lock_stock, create_time, update_time FROM inventory WHERE product_id = #{productId}
     </select>
 
-    <insert id="insert" parameterType="Inventory" useGeneratedKeys="true" keyProperty="id">
+    <insert id="insert" parameterType="org.sxk.store.entity.Inventory" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO inventory (product_id, stock, lock_stock) VALUES (#{productId}, #{stock}, #{lockStock})
     </insert>
 
-    <update id="update" parameterType="Inventory">
+    <update id="update" parameterType="org.sxk.store.entity.Inventory">
         UPDATE inventory SET stock = #{stock}, lock_stock = #{lockStock} WHERE id = #{id}
     </update>
 

@@ -22,8 +22,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -131,7 +134,10 @@ public class OrderServiceImpl implements OrderService {
             throw new RuntimeException("Insufficient stock for one or more products");
         }
         
+        String orderNo = generateOrderNo();
+        
         OrderMessageDTO message = new OrderMessageDTO();
+        message.setOrderNo(orderNo);
         message.setUserId(userId);
         message.setItems(messageItems);
         
@@ -139,8 +145,14 @@ public class OrderServiceImpl implements OrderService {
                                       RabbitMQConfig.ORDER_ROUTING_KEY, 
                                       message);
         
-        log.info("Order message sent to MQ for user {}", userId);
+        log.info("Order message sent to MQ for user {} with orderNo: {}", userId, orderNo);
         return null;
+    }
+    
+    private String generateOrderNo() {
+        String dateStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String uuidStr = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        return "ORD" + dateStr + uuidStr;
     }
 
     @Override

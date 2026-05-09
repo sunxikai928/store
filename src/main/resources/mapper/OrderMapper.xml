@@ -7,6 +7,7 @@
 
     <resultMap id="OrderResultMap" type="org.sxk.store.entity.Orders">
         <id property="id" column="id"/>
+        <result property="orderNo" column="order_no"/>
         <result property="userId" column="user_id"/>
         <result property="totalAmount" column="total_amount"/>
         <result property="status" column="status"/>
@@ -15,19 +16,23 @@
     </resultMap>
 
     <select id="findAll" resultMap="OrderResultMap">
-        SELECT id, user_id, total_amount, status, create_time, update_time FROM orders
+        SELECT id, order_no, user_id, total_amount, status, create_time, update_time FROM orders
     </select>
 
     <select id="findById" resultMap="OrderResultMap">
-        SELECT id, user_id, total_amount, status, create_time, update_time FROM orders WHERE id = #{id}
+        SELECT id, order_no, user_id, total_amount, status, create_time, update_time FROM orders WHERE id = #{id}
+    </select>
+
+    <select id="findByOrderNo" resultMap="OrderResultMap">
+        SELECT id, order_no, user_id, total_amount, status, create_time, update_time FROM orders WHERE order_no = #{orderNo}
     </select>
 
     <insert id="insert" parameterType="org.sxk.store.entity.Orders" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO orders (user_id, total_amount, status) VALUES (#{userId}, #{totalAmount}, #{status})
+        INSERT INTO orders (order_no, user_id, total_amount, status) VALUES (#{orderNo}, #{userId}, #{totalAmount}, #{status})
     </insert>
 
     <update id="update" parameterType="org.sxk.store.entity.Orders">
-        UPDATE orders SET user_id = #{userId}, total_amount = #{totalAmount}, status = #{status} WHERE id = #{id}
+        UPDATE orders SET order_no = #{orderNo}, user_id = #{userId}, total_amount = #{totalAmount}, status = #{status} WHERE id = #{id}
     </update>
 
     <delete id="delete">
@@ -35,7 +40,7 @@
     </delete>
 
     <select id="findByUserId" resultMap="OrderResultMap">
-        SELECT id, user_id, total_amount, status, create_time, update_time FROM orders WHERE user_id = #{userId}
+        SELECT id, order_no, user_id, total_amount, status, create_time, update_time FROM orders WHERE user_id = #{userId}
     </select>
 
 </mapper>
