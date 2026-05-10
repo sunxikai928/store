@@ -122,7 +122,6 @@ public class MessageRecordServiceImpl implements MessageRecordService {
                 try {
                     Object message = objectMapper.readValue(record.getMessageBody(), Object.class);
                     rabbitTemplate.convertAndSend(record.getExchange(), record.getRoutingKey(),  message);
-                    messageRecordMapper.updateStatus(record.getId(), MessageStatus.SENT.getCode(), null);
                     log.info("Retried message: id={}, exchange={}, routingKey={}",
                             record.getId(), record.getExchange(), record.getRoutingKey());
                 } catch (JsonProcessingException e) {
