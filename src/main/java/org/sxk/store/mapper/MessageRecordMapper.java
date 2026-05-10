@@ -17,6 +17,8 @@ public interface MessageRecordMapper {
     List<MessageRecord> findFailedMessagesToRetry(LocalDateTime now);
     
     int updateStatus(Long id, Integer status, String failReason);
-    
+
+    int updateMessage(Long id, String messageBody);
+
     int incrementRetryCount(Long id, LocalDateTime nextRetryTime);
 }

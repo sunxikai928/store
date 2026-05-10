@@ -19,6 +19,8 @@ public class MessageRecord {
     
     private String messageBody;
     
+    private String messageType;
+    
     private Integer retryCount;
     
     private LocalDateTime nextRetryTime;

@@ -150,19 +150,22 @@ public class OrderServiceImpl implements OrderService {
         message.setItems(messageItems);
         
         try {
-            String messageBody = objectMapper.writeValueAsString(message);
             
             Long messageId = messageRecordService.saveMessage(
                 RabbitMQConfig.ORDER_EXCHANGE, 
                 RabbitMQConfig.ORDER_ROUTING_KEY, 
-                messageBody
+                null,
+                OrderMessageDTO.class.getName()
             );
-            
+
             message.setMessageId(messageId);
             
             rabbitTemplate.convertAndSend(RabbitMQConfig.ORDER_EXCHANGE, 
                                         RabbitMQConfig.ORDER_ROUTING_KEY, 
                                         message);
+
+            String messageBody = objectMapper.writeValueAsString(message);
+            messageRecordService.updateMessage(messageId, messageBody);
             
             log.info("Order message sent to MQ for user {} with orderNo: {}, messageId: {}", userId, orderNo, messageId);
         } catch (Exception e) {

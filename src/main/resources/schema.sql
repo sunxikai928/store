@@ -78,3 +78,5 @@ CREATE TABLE IF NOT EXISTS message_record (
     INDEX idx_status (status), 
     INDEX idx_next_retry_time (next_retry_time) 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息记录表';
+
+ALTER TABLE message_record ADD COLUMN message_type VARCHAR(255) NULL AFTER message_body;

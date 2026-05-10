@@ -10,6 +10,7 @@
         <result property="exchange" column="exchange"/>
         <result property="routingKey" column="routing_key"/>
         <result property="messageBody" column="message_body"/>
+        <result property="messageType" column="message_type"/>
         <result property="retryCount" column="retry_count"/>
         <result property="nextRetryTime" column="next_retry_time"/>
         <result property="status" column="status"/>
@@ -19,8 +20,8 @@
     </resultMap>
 
     <insert id="insert" parameterType="org.sxk.store.entity.MessageRecord" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO message_record (exchange, routing_key, message_body, retry_count, next_retry_time, status)
-        VALUES (#{exchange}, #{routingKey}, #{messageBody}, #{retryCount}, #{nextRetryTime}, #{status})
+        INSERT INTO message_record (exchange, routing_key, message_body, message_type, retry_count, next_retry_time, status)
+        VALUES (#{exchange}, #{routingKey}, #{messageBody}, #{messageType}, #{retryCount}, #{nextRetryTime}, #{status})
     </insert>
 
     <update id="update" parameterType="org.sxk.store.entity.MessageRecord">
@@ -28,6 +29,7 @@
         SET exchange = #{exchange},
             routing_key = #{routingKey},
             message_body = #{messageBody},
+            message_type = #{messageType},
             retry_count = #{retryCount},
             next_retry_time = #{nextRetryTime},
             status = #{status},
@@ -37,17 +39,17 @@
     </update>
 
     <select id="findById" resultMap="MessageRecordResultMap">
-        SELECT id, exchange, routing_key, message_body, retry_count, next_retry_time, status, fail_reason, create_time, update_time
+        SELECT id, exchange, routing_key, message_body, message_type, retry_count, next_retry_time, status, fail_reason, create_time, update_time
         FROM message_record WHERE id = #{id}
     </select>
 
     <select id="findByStatus" resultMap="MessageRecordResultMap">
-        SELECT id, exchange, routing_key, message_body, retry_count, next_retry_time, status, fail_reason, create_time, update_time
+        SELECT id, exchange, routing_key, message_body, message_type, retry_count, next_retry_time, status, fail_reason, create_time, update_time
         FROM message_record WHERE status = #{status}
     </select>
 
     <select id="findFailedMessagesToRetry" resultMap="MessageRecordResultMap">
-        SELECT id, exchange, routing_key, message_body, retry_count, next_retry_time, status, fail_reason, create_time, update_time
+        SELECT id, exchange, routing_key, message_body, message_type, retry_count, next_retry_time, status, fail_reason, create_time, update_time
         FROM message_record
         WHERE status = 3 AND next_retry_time &lt;= #{now} AND retry_count &lt; 5
         ORDER BY next_retry_time ASC
@@ -65,6 +67,12 @@
         UPDATE message_record
         SET retry_count = retry_count + 1,
             next_retry_time = #{nextRetryTime},
+            update_time = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+    <update id="updateMessage">
+        UPDATE message_record
+        SET message_body = #{messageBody},
             update_time = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>
