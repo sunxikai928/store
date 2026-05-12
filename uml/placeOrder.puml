@@ -1,15 +1,73 @@
 @startuml
 'https://plantuml.com/sequence-diagram
 
+actor       用户       as 用户
+participant 订单服务 as 订单服务
+participant 订单消费者 as 订单消费者
+participant RabbitMQ as RabbitMQ
+database    Redis    as redis
+database    MYSQL    as MYSQL
+
 autonumber
 
-== Initialization ==
+== 下单 ==
 
-Alice -> Bob: Authentication Request
-Bob --> Alice: Authentication Response
+用户 -> 订单服务: 下单
+订单服务 -> redis: Lua脚本原子扣减库存
+alt 扣减库存成功
+    订单服务 -> 用户: 下单中
+    订单服务 -> MYSQL: 保存消息到数据库，状态为发送中
+    订单服务 -> RabbitMQ: 发送创建订单消息
+    订单服务 -> MYSQL: 更新消息状态为已发送成功
+else 扣减库存失败
+    订单服务 --> 用户: 库存不足
+end
 
-== Repetition ==
+== 生成订单 ==
 
-Alice -> Bob: Another authentication Request
-Alice <-- Bob: another authentication Response
+RabbitMQ --> 订单消费者: 消费创建订单消息
+note left: RabbitMQ推送消息给订单消费者消费
+订单消费者 -> MYSQL: 查询订单是否存在
+alt 订单还没创建
+    订单消费者 -> MYSQL: 生成订单，保存数据库
+    订单消费者 -> MYSQL: 修改库存，锁定库存
+    alt 订单创建成功
+        订单消费者 -> MYSQL: 设置消息状态为已完成
+        订单消费者 -> RabbitMQ: 发送延时取消的消息
+        订单消费者 -> RabbitMQ: ACK确认
+    else 订单创建失败
+        订单消费者 -> MYSQL: 设置消息状态为失败，次数加1
+        note left: 极限次数为3次
+        订单消费者 -> RabbitMQ: NACK，requeue=false
+    end
+else 订单已存在
+    订单消费者 --> RabbitMQ: ACK确认
+end
+
+== 订单支付 ==
+
+用户 -> 订单服务: 支付订单
+
+订单服务 -> MYSQL: 查询订单是否存在 && 状态是未支付
+alt 订单存在 && 状态是未支付
+    订单服务 -> MYSQL: 更新订单状态为已支付
+    订单服务 -> MYSQL: 更新库存表，增加已售数量
+end
+订单服务 --> 用户: 支付成功
+
+autonumber
+== 超时自动取消 ==
+
+RabbitMQ --> 订单消费者: 消费延时取消的消息
+alt 订单状态是未支付并且未取消
+    订单消费者 -> MYSQL: 取消订单，更新订单状态为已取消
+    订单消费者 -> MYSQL: 解锁库存
+    订单消费者 -> redis: 订单取消，增加库存
+    订单消费者 -> RabbitMQ: ACK确认
+end
+
+autonumber
+== 异常消息再次投递 ==
+订单服务 -> MYSQL: 查询失败次数小于3次的消息
+订单服务 -> RabbitMQ: 发送消息给订单消费者再次消费
 @enduml

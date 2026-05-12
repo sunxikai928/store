@@ -1,6 +1,8 @@
 package org.sxk.store.service.impl;
 
+import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
@@ -52,24 +54,26 @@ public class OrderConsumer {
 
     @RabbitListener(queues = RabbitMQConfig.ORDER_QUEUE)
     @Transactional(rollbackFor = Exception.class)
-    public void handleOrderMessage(OrderMessageDTO message) {
+    public void handleOrderMessage(OrderMessageDTO message, Channel channel, Message amqpMessage) {
         Long userId = message.getUserId();
         String orderNo = message.getOrderNo();
         Long messageId = message.getMessageId();
         List<OrderMessageDTO.OrderItemDTO> itemDTOs = message.getItems();
+        long deliveryTag = amqpMessage.getMessageProperties().getDeliveryTag();
 
         log.info("Received order message for user {} with orderNo {} and {} items, messageId: {}", userId, orderNo, itemDTOs.size(), messageId);
 
-        Orders existingOrder = orderMapper.findByOrderNo(orderNo);
-        if (existingOrder != null) {
-            log.info("Order already exists, skipping duplicate message. orderNo: {}", orderNo);
-            if (messageId != null) {
-                messageRecordService.updateStatus(messageId, MessageStatus.CONSUMED_SUCCESS.getCode(), null);
-            }
-            return;
-        }
-
         try {
+            Orders existingOrder = orderMapper.findByOrderNo(orderNo);
+            if (existingOrder != null) {
+                log.info("Order already exists, skipping duplicate message. orderNo: {}", orderNo);
+                if (messageId != null) {
+                    messageRecordService.updateStatus(messageId, MessageStatus.CONSUMED_SUCCESS.getCode(), null);
+                }
+                channel.basicAck(deliveryTag, false);
+                return;
+            }
+
             BigDecimal totalAmount = BigDecimal.ZERO;
             List<OrderItem> items = new ArrayList<>();
 
@@ -114,6 +118,7 @@ public class OrderConsumer {
 
             sendDelayMessage(order.getId(), order.getOrderNo());
 
+            channel.basicAck(deliveryTag, false);
             log.info("Order created successfully via MQ: {}", order.getId());
 
         } catch (Exception e) {
@@ -127,6 +132,12 @@ public class OrderConsumer {
 
             if (messageId != null) {
                 messageRecordService.handleMessageFailure(messageId, e.getMessage());
+            }
+
+            try {
+                channel.basicNack(deliveryTag, false, false);
+            } catch (Exception ex) {
+                log.error("Failed to nack message", ex);
             }
         }
     }
@@ -157,26 +168,29 @@ public class OrderConsumer {
 
     @RabbitListener(queues = RabbitMQConfig.ORDER_DELAY_QUEUE)
     @Transactional(rollbackFor = Exception.class)
-    public void handleOrderDelayMessage(OrderDelayMessageDTO message) {
+    public void handleOrderDelayMessage(OrderDelayMessageDTO message, Channel channel, Message amqpMessage) {
         Long orderId = message.getOrderId();
         String orderNo = message.getOrderNo();
+        long deliveryTag = amqpMessage.getMessageProperties().getDeliveryTag();
 
         log.info("Received delay message for order: {}, orderNo: {}", orderId, orderNo);
 
-        Orders order = orderMapper.findById(orderId);
-        if (order == null) {
-            log.warn("Order not found, orderId: {}, orderNo: {}", orderId, orderNo);
-            return;
-        }
-
-        if (!OrderStatus.PENDING.equals(order.getStatusEnum())) {
-            log.info("Order is not in pending state, skip cancel. orderId: {}, status: {}", orderId, order.getStatusEnum());
-            return;
-        }
-
-        log.info("Canceling order due to timeout. orderId: {}, orderNo: {}", orderId, orderNo);
-
         try {
+            Orders order = orderMapper.findById(orderId);
+            if (order == null) {
+                log.warn("Order not found, orderId: {}, orderNo: {}", orderId, orderNo);
+                channel.basicAck(deliveryTag, false);
+                return;
+            }
+
+            if (!OrderStatus.PENDING.equals(order.getStatusEnum())) {
+                log.info("Order is not in pending state, skip cancel. orderId: {}, status: {}", orderId, order.getStatusEnum());
+                channel.basicAck(deliveryTag, false);
+                return;
+            }
+
+            log.info("Canceling order due to timeout. orderId: {}, orderNo: {}", orderId, orderNo);
+
             List<OrderItem> items = orderItemMapper.findByOrderId(orderId);
             for (OrderItem item : items) {
                 inventoryService.unlockStock(item.getProductId(), item.getQuantity());
@@ -190,9 +204,16 @@ public class OrderConsumer {
             order.setStatusEnum(OrderStatus.CANCELED);
             orderMapper.update(order);
 
+            channel.basicAck(deliveryTag, false);
             log.info("Order canceled due to timeout. orderId: {}, orderNo: {}", orderId, orderNo);
         } catch (Exception e) {
             log.error("Failed to cancel order due to timeout. orderId: {}", orderId, e);
+
+            try {
+                channel.basicNack(deliveryTag, false, true);
+            } catch (Exception ex) {
+                log.error("Failed to nack delay message", ex);
+            }
         }
     }
 }
